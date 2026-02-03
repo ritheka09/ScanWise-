@@ -5,7 +5,9 @@ export const PAGES = {
   RESULTS: 'results',
   COMPARISON: 'comparison',
   LOGIN: 'login',
-  SIGNUP: 'signup'
+  SIGNUP: 'signup',
+  QUIZ: 'quiz',
+  PROFILE: 'profile'
 }
 
 // Analysis ratings

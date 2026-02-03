@@ -1,6 +1,56 @@
+import { useUserProfile } from '../contexts/UserProfileContext'
+import { evaluateProductForUser, getVerdictDisplay } from '../utils/productSuitability'
+import { getRecommendedAlternatives } from '../utils/recommendationsEngine'
+import { scanHistoryService } from '../services/scanHistoryService'
+import { useAuth } from '../contexts/AuthContext'
+
 function ResultsPage({ data, onBack, onCompare }) {
+  const { userProfile } = useUserProfile()
+  const { user } = useAuth()
+  
   console.log('ResultsPage data:', data)
   console.log('RESULTS_PAGE_SOURCE:', data?.analysisSource)
+  
+  // Evaluate product suitability for the user
+  let suitabilityEvaluation = null
+  let recommendations = null
+  
+  if (userProfile?.healthProfile && data) {
+    try {
+      // Transform data to match expected format
+      const productData = {
+        productName: data.product?.name || 'Unknown Product',
+        sugar: data.nutritionFacts?.sugar || 'N/A',
+        salt: data.nutritionFacts?.sodium ? (data.nutritionFacts.sodium / 1000).toFixed(1) : 'N/A', // Convert mg to g
+        fat: data.nutritionFacts?.saturatedFat || 'N/A',
+        calories: data.nutritionFacts?.calories || 'N/A',
+        ingredients: data.ingredients?.map(ing => ing.name).join(', ') || ''
+      }
+      
+      suitabilityEvaluation = evaluateProductForUser(productData, userProfile.healthProfile)
+      console.log('🎯 Product suitability evaluation:', suitabilityEvaluation)
+      console.log('📊 Product data used:', productData)
+      console.log('👤 Health profile used:', userProfile.healthProfile)
+      
+      // Get recommendations if product is not "good"
+      if (suitabilityEvaluation.verdict !== 'good') {
+        recommendations = getRecommendedAlternatives(productData, userProfile.healthProfile)
+        console.log('💡 Generated recommendations:', recommendations)
+      }
+      
+      // Save scan to history (non-blocking)
+      if (user) {
+        const scanData = {
+          productName: productData.productName,
+          verdict: suitabilityEvaluation.verdict,
+          flags: extractFlags(suitabilityEvaluation.reasons)
+        }
+        scanHistoryService.saveScan(user.uid, scanData)
+      }
+    } catch (error) {
+      console.error('❌ Error evaluating product suitability:', error)
+    }
+  }
   
   if (!data) {
     console.log('No data provided to ResultsPage')
@@ -37,7 +87,59 @@ function ResultsPage({ data, onBack, onCompare }) {
             <p className="data-used">Analysis based on: {data.product?.dataUsed || 'Available data'}</p>
           </div>
 
-          {/* Data Quality Indicator */}
+          {/* Personalized Suitability Assessment */}
+          {suitabilityEvaluation && (
+            <div className="suitability-section">
+              <h3 className="section-title">🎯 Personalized Assessment</h3>
+              <div className="suitability-card">
+                <div className="verdict-display">
+                  <div 
+                    className="verdict-badge"
+                    style={{
+                      backgroundColor: getVerdictDisplay(suitabilityEvaluation.verdict).bgColor,
+                      color: getVerdictDisplay(suitabilityEvaluation.verdict).color
+                    }}
+                  >
+                    <span className="verdict-emoji">
+                      {getVerdictDisplay(suitabilityEvaluation.verdict).emoji}
+                    </span>
+                    <span className="verdict-label">
+                      {getVerdictDisplay(suitabilityEvaluation.verdict).label}
+                    </span>
+                  </div>
+                </div>
+                
+                {suitabilityEvaluation.reasons.length > 0 && (
+                  <div className="suitability-reasons">
+                    <h4>Why this recommendation?</h4>
+                    <ul className="reasons-list">
+                      {suitabilityEvaluation.reasons.map((reason, index) => (
+                        <li key={index} className="reason-item">
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+
+          {!userProfile?.healthProfile && (
+            <div className="quiz-prompt-section">
+              <h3 className="section-title">🎯 Get Personalized Recommendations</h3>
+              <div className="quiz-prompt-card">
+                <p>Complete your health profile quiz to get personalized product recommendations!</p>
+                <button 
+                  className="quiz-prompt-btn"
+                  onClick={() => window.location.reload()} // This will trigger quiz redirect in App.jsx
+                >
+                  Complete Health Quiz
+                </button>
+              </div>
+            </div>
+          )}
           <div className="data-quality-section">
             <h3 className="section-title">Data Confidence</h3>
             <div className={`quality-indicator ${data.dataQuality}`}>
@@ -123,21 +225,6 @@ function ResultsPage({ data, onBack, onCompare }) {
             </div>
           )}
 
-          {/* Health Alerts - moved after nutrition */}
-          {data.personalizedWarnings && data.personalizedWarnings.length > 0 && (
-            <div className="personalized-warnings">
-              <h3 className="section-title">⚠️ Health Alerts</h3>
-              <div className="warnings-grid">
-                {data.personalizedWarnings.map((warning, index) => (
-                  <div key={index} className={`warning-card ${warning.severity}`}>
-                    <div className="warning-type">{warning.type.replace('-', ' ').toUpperCase()}</div>
-                    <div className="warning-message">{warning.message}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* 2. Overall Health Rating with Explanation */}
           <div className="health-rating">
             <h3 className="section-title">Health Rating</h3>
@@ -156,11 +243,20 @@ function ResultsPage({ data, onBack, onCompare }) {
             )}
           </div>
 
-          {/* 7. Final AI Comment */}
-          <div className="final-comment">
-            <h3 className="section-title">Recommendation</h3>
-            <p className="comment-text">{data.finalComment || 'No specific recommendations available.'}</p>
-          </div>
+          {/* Smart Recommendations - Show only when verdict is not "good" */}
+          {recommendations && recommendations.recommendations.length > 0 && (
+            <div className="recommendations-section">
+              <h3 className="section-title">🌟 Better choices for you</h3>
+              <div className="recommendations-grid">
+                {recommendations.recommendations.map((rec, index) => (
+                  <div key={index} className="recommendation-card">
+                    <h4 className="recommendation-title">{rec.title}</h4>
+                    <p className="recommendation-example">{rec.example}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Raw OCR Data Section - Enhanced */}
           {data.rawText && (
@@ -234,6 +330,19 @@ function ResultsPage({ data, onBack, onCompare }) {
 }
 
 // Helper functions
+function extractFlags(reasons) {
+  const flags = []
+  reasons.forEach(reason => {
+    if (reason.includes('sugar')) flags.push('high_sugar')
+    if (reason.includes('sodium') || reason.includes('salt')) flags.push('high_sodium')
+    if (reason.includes('fat')) flags.push('high_fat')
+    if (reason.includes('allergen') || reason.includes('allergy')) flags.push('allergens')
+    if (reason.includes('calorie')) flags.push('high_calories')
+    if (reason.includes('diet') || reason.includes('vegetarian') || reason.includes('vegan')) flags.push('diet_incompatible')
+  })
+  return flags
+}
+
 function getConfidenceClass(confidence) {
   if (!confidence) return 'unknown'
   if (confidence >= 0.8) return 'high'
