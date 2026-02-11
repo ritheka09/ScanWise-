@@ -3,12 +3,15 @@ import { foodFacts } from '../data/mockData'
 import BarcodeScanner from '../components/BarcodeScanner'
 import { useBarcode } from '../hooks/useBarcode'
 import ProductApiService from '../services/productApiService'
-import { EnhancementService } from '../services/enhancementService'
+import { scanHistoryService } from '../services/scanHistoryService'
+import { useAuth } from '../contexts/AuthContext'
 
 function HomePage({ onBarcodeAnalyze, onCompare }) {
+  const { user } = useAuth()
   const [typedText, setTypedText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [scanHistory, setScanHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(true)
   const [showNotFound, setShowNotFound] = useState(false)
   const [notFoundBarcode, setNotFoundBarcode] = useState('')
   const [manualBarcode, setManualBarcode] = useState('')
@@ -26,10 +29,36 @@ function HomePage({ onBarcodeAnalyze, onCompare }) {
     reset: resetBarcode
   } = useBarcode()
 
-  // Load scan history from localStorage
+  // Listen for history product view events
   useEffect(() => {
-    setScanHistory(EnhancementService.getScanHistory())
-  }, [])
+    const handleViewProduct = (event) => {
+      if (event.detail) {
+        onBarcodeAnalyze(event.detail)
+      }
+    }
+    window.addEventListener('viewHistoryProduct', handleViewProduct)
+    return () => window.removeEventListener('viewHistoryProduct', handleViewProduct)
+  }, [onBarcodeAnalyze])
+
+  // Load user-specific scan history from Firestore
+  useEffect(() => {
+    if (user) {
+      loadScanHistory()
+    }
+    
+    // Listen for history updates
+    const handleUpdate = () => loadScanHistory()
+    window.addEventListener('scanHistoryUpdate', handleUpdate)
+    return () => window.removeEventListener('scanHistoryUpdate', handleUpdate)
+  }, [user])
+
+  const loadScanHistory = async () => {
+    if (!user) return
+    setHistoryLoading(true)
+    const history = await scanHistoryService.getUserScanHistory(user.uid, 3)
+    setScanHistory(history)
+    setHistoryLoading(false)
+  }
 
   // Typing effect for fun facts
   useEffect(() => {
@@ -61,7 +90,17 @@ function HomePage({ onBarcodeAnalyze, onCompare }) {
     setShowNotFound(false)
     try {
       const productData = await productApi.current.fetchProductByBarcode(barcode)
-      setScanHistory(EnhancementService.getScanHistory())
+      
+      // Save to Firestore scan history
+      if (user) {
+        await scanHistoryService.saveScan(user.uid, {
+          productName: productData.product.name,
+          verdict: productData.verdict,
+          flags: productData.flags || []
+        })
+        await loadScanHistory()
+      }
+      
       onBarcodeAnalyze(productData)
     } catch (error) {
       console.error('Barcode analysis failed:', error)
@@ -85,15 +124,17 @@ function HomePage({ onBarcodeAnalyze, onCompare }) {
   }
 
   const handleRescanProduct = (item) => {
-    onBarcodeAnalyze(item.data)
+    if (item.productData) {
+      console.log('Viewing product from history:', item.productData)
+      onBarcodeAnalyze(item.productData)
+    } else {
+      alert('Product details not available for older scans. Please scan again.')
+    }
   }
 
   const handleSelectForComparison = (item) => {
-    if (selectedForComparison.find(p => p.barcode === item.barcode)) {
-      setSelectedForComparison(selectedForComparison.filter(p => p.barcode !== item.barcode))
-    } else if (selectedForComparison.length < 2) {
-      setSelectedForComparison([...selectedForComparison, item.data])
-    }
+    // Comparison requires full product data - not available in history
+    alert('Please scan products again to compare them')
   }
 
   const handleCompareSelected = () => {
@@ -179,36 +220,44 @@ function HomePage({ onBarcodeAnalyze, onCompare }) {
           </div>
         )}
 
-        {scanHistory.length > 0 && !isScanning && !showNotFound && (
+        {historyLoading && !isScanning && !showNotFound && (
+          <div className="history-loading">
+            <p>🔄 Loading history...</p>
+          </div>
+        )}
+
+        {!historyLoading && scanHistory.length === 0 && !isScanning && !showNotFound && (
+          <div className="history-empty">
+            <p>💭 No scans yet. Start scanning to build your history.</p>
+          </div>
+        )}
+
+        {!historyLoading && scanHistory.length > 0 && !isScanning && !showNotFound && (
           <div className="scan-history">
             <div className="history-header">
-              <h4>Scan History</h4>
-              {selectedForComparison.length === 2 && (
-                <button className="compare-btn" onClick={handleCompareSelected}>
-                  ⚖️ Compare Selected
-                </button>
-              )}
+              <h4>Recent Scans</h4>
             </div>
             <div className="history-list">
-              {scanHistory.slice(0, 8).map((item) => (
+              {scanHistory.map((item) => (
                 <div key={item.id} className="history-item">
                   <div className="item-info" onClick={() => handleRescanProduct(item)}>
-                    <span className="item-name">{item.name}</span>
-                    <span className="item-brand">{item.brand}</span>
+                    <span className="item-name">{item.productName}</span>
+                    <span className="item-brand">{item.brand || 'Unknown Brand'}</span>
                     <div className="item-meta">
-                      <span className="item-rating">⭐ {item.rating.toFixed(1)}</span>
+                      <span className={`item-verdict ${item.verdict?.toLowerCase()}`}>
+                        {item.verdict === 'good' ? '✅' : item.verdict === 'avoid' ? '❌' : '⚠️'} {item.verdict || 'N/A'}
+                      </span>
+                      <span 
+                        className="item-score"
+                        style={{ color: getScoreColor(item.score || 0) }}
+                      >
+                        🎯 {item.score || 0}/100
+                      </span>
                       <span className="item-time">
-                        {new Date(item.timestamp).toLocaleDateString()}
+                        {item.scannedAt?.toDate ? item.scannedAt.toDate().toLocaleDateString() : 'Recent'}
                       </span>
                     </div>
                   </div>
-                  <button 
-                    className={`compare-select ${selectedForComparison.find(p => p.barcode === item.barcode) ? 'selected' : ''}`}
-                    onClick={() => handleSelectForComparison(item)}
-                    disabled={selectedForComparison.length >= 2 && !selectedForComparison.find(p => p.barcode === item.barcode)}
-                  >
-                    {selectedForComparison.find(p => p.barcode === item.barcode) ? '✓' : '+'}
-                  </button>
                 </div>
               ))}
             </div>
@@ -223,6 +272,13 @@ function HomePage({ onBarcodeAnalyze, onCompare }) {
       </div>
     </>
   )
+}
+
+// Helper function for score color
+function getScoreColor(score) {
+  if (score >= 75) return 'green'
+  if (score >= 50) return 'orange'
+  return 'red'
 }
 
 export default HomePage

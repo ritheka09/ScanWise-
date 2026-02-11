@@ -66,14 +66,6 @@ const BarcodeScanner = ({ onScanSuccess, onScanError, isActive }) => {
       <div 
         ref={scannerRef} 
         className="scanner-viewport"
-        style={{
-          width: '100%',
-          height: '300px',
-          border: '2px solid #228b22',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          position: 'relative'
-        }}
       />
       <div className="scanner-overlay">
         <div className="scan-line"></div>

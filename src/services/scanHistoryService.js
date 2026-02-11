@@ -1,10 +1,10 @@
 /**
- * Scan History Service - Step 6
- * Manages user scan history in Firestore subcollection
+ * Scan History Service
+ * Manages user scan history in Firestore
  */
 
 import { db } from '../config/firebase'
-import { collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from 'firebase/firestore'
+import { doc, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from 'firebase/firestore'
 
 export const scanHistoryService = {
   /**
@@ -16,16 +16,21 @@ export const scanHistoryService = {
     try {
       console.log('💾 Saving scan to history:', scanData)
       
-      const scanHistoryRef = collection(db, 'users', uid, 'scanHistory')
+      const userDocRef = doc(db, 'scanHistory', uid)
+      const itemsCollectionRef = collection(userDocRef, 'items')
       
       const scanDocument = {
-        productName: scanData.productName,
-        verdict: scanData.verdict,
-        flags: scanData.flags || [],
+        productName: scanData.productName || 'Unknown Product',
+        brand: scanData.brand || 'Unknown Brand',
+        score: scanData.score || 0,
+        verdict: scanData.verdict || 'moderate',
+        sugarRisk: scanData.sugarRisk || 'N/A',
+        saltRisk: scanData.saltRisk || 'N/A',
+        productData: scanData.productData || null,
         scannedAt: serverTimestamp()
       }
       
-      await addDoc(scanHistoryRef, scanDocument)
+      await addDoc(itemsCollectionRef, scanDocument)
       console.log('✅ Scan saved to history')
       
     } catch (error) {
@@ -44,9 +49,10 @@ export const scanHistoryService = {
     try {
       console.log('📚 Fetching scan history for user:', uid)
       
-      const scanHistoryRef = collection(db, 'users', uid, 'scanHistory')
+      const userDocRef = doc(db, 'scanHistory', uid)
+      const itemsCollectionRef = collection(userDocRef, 'items')
       const q = query(
-        scanHistoryRef,
+        itemsCollectionRef,
         orderBy('scannedAt', 'desc'),
         limit(limitCount)
       )

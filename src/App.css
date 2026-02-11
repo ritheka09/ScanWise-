@@ -56,21 +56,33 @@ body {
   position: fixed;
   top: 1.5rem;
   right: 1.5rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.floating-theme-toggle .icon-btn {
+  background: white;
+  border: none;
   border-radius: 50%;
   width: 50px;
   height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  font-size: 1.4rem;
-  transition: all 0.3s ease;
+  font-size: 1.5rem;
   color: var(--accent);
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+:root[data-theme="dark"] .floating-theme-toggle .icon-btn {
+  background: #2d2d2d;
+  color: var(--accent);
 }
 
 .floating-profile,
@@ -78,21 +90,44 @@ body {
   position: fixed;
   top: 1.5rem;
   left: 1.5rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.floating-profile .icon-btn,
+.floating-profile-btn .icon-btn {
+  background: transparent;
+  border: 2px solid var(--accent);
   border-radius: 50%;
   width: 50px;
   height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  font-size: 1.4rem;
-  transition: all 0.3s ease;
+  font-size: 1.5rem;
   color: var(--accent);
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  box-shadow: none;
+  transition: all 0.3s ease;
+}
+
+:root[data-theme="dark"] .floating-profile .icon-btn,
+:root[data-theme="dark"] .floating-profile-btn .icon-btn {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.floating-theme-toggle .floating-label,
+.floating-profile-btn .floating-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .floating-history,
@@ -156,14 +191,11 @@ body {
   transform-origin: center bottom;
 }
 
-.floating-theme-toggle:hover,
-.floating-profile:hover,
-.floating-profile-btn:hover,
-.floating-history:hover,
-.floating-favorites:hover {
-  border-color: var(--accent);
-  transform: scale(1.05);
-  box-shadow: 0 6px 25px var(--shadow);
+.floating-theme-toggle:hover .icon-btn,
+.floating-profile:hover .icon-btn,
+.floating-profile-btn:hover .icon-btn {
+  transform: scale(1.1);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .floating-history:hover .clock-icon,
@@ -464,23 +496,25 @@ body {
   }
   
   .floating-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
   
   .floating-theme-toggle,
   .floating-profile {
+    top: 1rem;
+  }
+  
+  .icon-btn {
     width: 44px;
     height: 44px;
     font-size: 1.2rem;
   }
   
   .floating-theme-toggle {
-    top: 1rem;
     right: 1rem;
   }
   
   .floating-profile {
-    top: 1rem;
     left: 1rem;
   }
   
@@ -1763,6 +1797,18 @@ body {
 .scanner-viewport {
   position: relative;
   overflow: hidden;
+  width: 100%;
+  height: 300px;
+}
+
+.scanner-viewport video,
+.scanner-viewport canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .scanner-overlay {
@@ -1778,6 +1824,7 @@ body {
   background: rgba(0, 0, 0, 0.3);
   color: white;
   pointer-events: none;
+  z-index: 1;
 }
 
 .scan-line {
@@ -1859,6 +1906,11 @@ body {
   
   .scanner-viewport {
     height: 250px;
+  }
+  
+  .scanner-viewport video,
+  .scanner-viewport canvas {
+    height: 250px !important;
   }
   
   .recent-scans {
@@ -2082,7 +2134,7 @@ body {
 .scan-history {
   background: var(--upload-bg);
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1rem;
   border: 1px solid var(--border);
 }
 
@@ -2090,12 +2142,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .history-header h4 {
   font-family: 'Poppins', sans-serif;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: var(--text-primary);
   margin: 0;
 }
@@ -2120,14 +2172,14 @@ body {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .history-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -2151,29 +2203,39 @@ body {
 .item-name {
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .item-brand {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
 .item-meta {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
 }
 
 .item-rating {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--accent);
   font-weight: 600;
 }
 
 .item-time {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
+}
+
+.item-verdict {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.item-score {
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .history-item:hover .item-name,
@@ -3515,18 +3577,17 @@ body {
 
 .reason-item {
   padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--bg-secondary);
   border-radius: 10px;
   color: var(--text-primary);
   font-size: 0.9rem;
   line-height: 1.4;
   border-left: 3px solid var(--accent);
-  backdrop-filter: blur(5px);
   transition: all 0.2s ease;
 }
 
 .reason-item:hover {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-secondary);
   transform: translateX(3px);
 }
 
@@ -3671,7 +3732,7 @@ body {
   color: var(--text-primary);
   font-size: 0.9rem;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--bg-secondary);
   padding: 0.5rem;
   border-radius: 6px;
   border-left: 3px solid #4caf50;
@@ -3704,7 +3765,7 @@ body {
 }
 
 .summary-message {
-  background: linear-gradient(135deg, #e8f5e8, #f0f8ff);
+  background: var(--bg-secondary);
   padding: 1.25rem;
   border-radius: 12px;
   border-left: 4px solid var(--accent);
@@ -3753,7 +3814,7 @@ body {
 }
 
 .top-concern {
-  background: #fff8e1;
+  background: var(--bg-secondary);
   padding: 1rem;
   border-radius: 10px;
   border-left: 4px solid #ff9800;
@@ -3782,6 +3843,27 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.scans-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.scan-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.scan-item-card:hover {
+  background: var(--upload-bg);
+  transform: translateX(2px);
 }
 
 .scan-item {

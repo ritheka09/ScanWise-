@@ -39,13 +39,28 @@ function ResultsPage({ data, onBack, onCompare }) {
       }
       
       // Save scan to history (non-blocking)
-      if (user) {
+      if (user && suitabilityEvaluation) {
+        // Calculate risk levels from nutrition values
+        const sugarValue = parseFloat(productData.sugar) || 0
+        const saltValue = parseFloat(productData.salt) || 0
+        
+        const sugarRiskLevel = sugarValue > 15 ? 'high' : sugarValue > 5 ? 'medium' : 'low'
+        const saltRiskLevel = saltValue > 1.5 ? 'high' : saltValue > 0.3 ? 'medium' : 'low'
+        
         const scanData = {
-          productName: productData.productName,
-          verdict: suitabilityEvaluation.verdict,
-          flags: extractFlags(suitabilityEvaluation.reasons)
+          productName: data.product?.name || 'Unknown Product',
+          brand: data.product?.brand || 'Unknown Brand',
+          score: suitabilityEvaluation.score || 0,
+          verdict: suitabilityEvaluation.verdict || 'moderate',
+          sugarRisk: sugarRiskLevel,
+          saltRisk: saltRiskLevel,
+          productData: data
         }
-        scanHistoryService.saveScan(user.uid, scanData)
+        scanHistoryService.saveScan(user.uid, scanData).then(() => {
+          console.log('✅ Scan saved to history successfully')
+        }).catch(err => {
+          console.error('Failed to save scan history:', err)
+        })
       }
     } catch (error) {
       console.error('❌ Error evaluating product suitability:', error)
@@ -90,56 +105,38 @@ function ResultsPage({ data, onBack, onCompare }) {
           {/* Personalized Suitability Assessment */}
           {suitabilityEvaluation && (
             <div className="suitability-section">
-              <h3 className="section-title">🎯 Personalized Assessment</h3>
-              <div className="suitability-card">
-                <div className="verdict-display">
-                  <div 
-                    className="verdict-badge"
-                    style={{
-                      backgroundColor: getVerdictDisplay(suitabilityEvaluation.verdict).bgColor,
-                      color: getVerdictDisplay(suitabilityEvaluation.verdict).color
-                    }}
-                  >
-                    <span className="verdict-emoji">
-                      {getVerdictDisplay(suitabilityEvaluation.verdict).emoji}
-                    </span>
-                    <span className="verdict-label">
-                      {getVerdictDisplay(suitabilityEvaluation.verdict).label}
-                    </span>
-                  </div>
+              <h3 className="section-title">⚙ Personalized Assessment</h3>
+              
+              {suitabilityEvaluation.reasons.length > 0 && (
+                <div className="suitability-reasons">
+                  <ul className="reasons-list">
+                    {suitabilityEvaluation.reasons.map((reason, index) => (
+                      <li key={index} className="reason-item">
+                        {reason}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                
-                {suitabilityEvaluation.reasons.length > 0 && (
-                  <div className="suitability-reasons">
-                    <h4>Why this recommendation?</h4>
-                    <ul className="reasons-list">
-                      {suitabilityEvaluation.reasons.map((reason, index) => (
-                        <li key={index} className="reason-item">
-                          {reason}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
 
 
           {!userProfile?.healthProfile && (
             <div className="quiz-prompt-section">
-              <h3 className="section-title">🎯 Get Personalized Recommendations</h3>
+              <h3 className="section-title">⚙ Get Personalized Recommendations</h3>
               <div className="quiz-prompt-card">
                 <p>Complete your health profile quiz to get personalized product recommendations!</p>
                 <button 
                   className="quiz-prompt-btn"
-                  onClick={() => window.location.reload()} // This will trigger quiz redirect in App.jsx
+                  onClick={() => window.location.reload()}
                 >
                   Complete Health Quiz
                 </button>
               </div>
             </div>
           )}
+          
           <div className="data-quality-section">
             <h3 className="section-title">Data Confidence</h3>
             <div className={`quality-indicator ${data.dataQuality}`}>
@@ -155,7 +152,6 @@ function ResultsPage({ data, onBack, onCompare }) {
             </div>
           </div>
 
-          {/* 3. Ingredient Analysis (only if ingredients exist) */}
           {hasIngredients && (
             <div className="ingredients-section">
               <h3 className="section-title">Ingredient Analysis</h3>
@@ -178,7 +174,6 @@ function ResultsPage({ data, onBack, onCompare }) {
             </div>
           )}
 
-          {/* Allergen Warnings */}
           {data.allergens && data.allergens.length > 0 && (
             <div className="allergen-section">
               <h3 className="section-title">⚠️ Allergen Information</h3>
@@ -192,7 +187,6 @@ function ResultsPage({ data, onBack, onCompare }) {
             </div>
           )}
 
-          {/* 4. Nutrition Analysis (most important) */}
           {hasNutrition && (
             <div className="nutrition-section">
               <h3 className="section-title">Nutrition Analysis (per 100g)</h3>
@@ -225,7 +219,6 @@ function ResultsPage({ data, onBack, onCompare }) {
             </div>
           )}
 
-          {/* 2. Overall Health Rating with Explanation */}
           <div className="health-rating">
             <h3 className="section-title">Health Rating</h3>
             <div className="rating-display">
@@ -243,10 +236,9 @@ function ResultsPage({ data, onBack, onCompare }) {
             )}
           </div>
 
-          {/* Smart Recommendations - Show only when verdict is not "good" */}
           {recommendations && recommendations.recommendations.length > 0 && (
             <div className="recommendations-section">
-              <h3 className="section-title">🌟 Better choices for you</h3>
+              <h3 className="section-title">★ Better choices for you</h3>
               <div className="recommendations-grid">
                 {recommendations.recommendations.map((rec, index) => (
                   <div key={index} className="recommendation-card">
@@ -258,7 +250,6 @@ function ResultsPage({ data, onBack, onCompare }) {
             </div>
           )}
 
-          {/* Raw OCR Data Section - Enhanced */}
           {data.rawText && (
             <div className="raw-ocr-section">
               <h3 className="section-title">Analysis Details</h3>
@@ -304,7 +295,7 @@ function ResultsPage({ data, onBack, onCompare }) {
           {/* 8. Navigation */}
           <div className="navigation-buttons">
             <button className="scan-another-btn" onClick={onBack}>
-              🔍 Scan Another Product
+              ↻ Scan Another Product
             </button>
           </div>
         </div>

@@ -105,7 +105,7 @@ const QUIZ_QUESTIONS = [
   }
 ]
 
-function QuizPage({ onQuizComplete }) {
+function QuizPage() {
   const { saveQuizAnswers } = useUserProfile()
   const [answers, setAnswers] = useState({})
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -151,13 +151,11 @@ function QuizPage({ onQuizComplete }) {
       setIsSubmitting(true)
       setError(null)
       console.log('📋 Submitting quiz answers:', answers)
-      await saveQuizAnswers(answers)
-      console.log('✅ Quiz submitted successfully')
       
-      // Navigate to home page after successful submission
-      if (onQuizComplete) {
-        onQuizComplete()
-      }
+      // Save to Firestore and update context
+      await saveQuizAnswers(answers)
+      
+      console.log('✅ Quiz submitted - App will auto-redirect to home')
     } catch (err) {
       console.error('❌ Quiz submission failed:', err)
       setError('Failed to save quiz. Please try again.')

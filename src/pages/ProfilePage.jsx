@@ -84,7 +84,7 @@ function ProfilePage({ onBack, onRetakeQuiz, onLogout }) {
   const loadScanHistory = async () => {
     try {
       setLoadingHistory(true)
-      const history = await scanHistoryService.getUserScanHistory(user.uid, 10)
+      const history = await scanHistoryService.getUserScanHistory(user.uid, 50)
       setScanHistory(history)
       const healthInsights = generateHealthInsights(history)
       setInsights(healthInsights)
@@ -126,21 +126,18 @@ function ProfilePage({ onBack, onRetakeQuiz, onLogout }) {
 
   return (
     <div className="profile-page">
-      <div className="profile-header">
-        <button className="back-btn" onClick={onBack}>
-          ← Back
-        </button>
-        <h1 className="profile-title">
-          <span className="app-logo">👤</span>
-          Your Health Profile
-        </h1>
-      </div>
+      <button className="floating-back-btn" onClick={onBack}>
+        ← Back to Scan
+      </button>
 
       <div className="profile-content">
+        <h1 className="profile-title">
+          Your Health Profile
+        </h1>
         {/* Health Insights Dashboard */}
         {userProfile.quizCompleted && (
           <div className="profile-card">
-            <h2>🌟 Health Insights</h2>
+            <h2>★ Health Insights</h2>
             {loadingHistory ? (
               <div className="loading-message">Loading your insights...</div>
             ) : insights ? (
@@ -176,31 +173,45 @@ function ProfilePage({ onBack, onRetakeQuiz, onLogout }) {
                 
                 {insights.topConcern && (
                   <div className="top-concern">
-                    <h4>💡 Focus Area</h4>
+                    <h4>• Focus Area</h4>
                     <p>Your most common concern is <strong>{insights.topConcern.label}</strong> 
                     (found in {insights.topConcern.count} products)</p>
                   </div>
                 )}
                 
                 {scanHistory.length > 0 && (
-                  <div className="recent-scans">
-                    <h4>Recent Scans</h4>
-                    <div className="scans-list">
-                      {scanHistory.slice(0, 5).map((scan, index) => (
-                        <div key={scan.id || index} className="scan-item">
-                          <div className="scan-info">
-                            <span className="scan-name">{scan.productName}</span>
-                            <span className="scan-date">{formatScanDate(scan.scannedAt)}</span>
-                          </div>
-                          <div 
-                            className="scan-verdict"
-                            style={{ color: getVerdictColor(scan.verdict) }}
-                          >
-                            {scan.verdict === 'good' ? '✅' : scan.verdict === 'moderate' ? '⚠️' : '❌'}
-                          </div>
+                  <div className="profile-card">
+                    <details className="collapsible-section">
+                      <summary className="section-summary">
+                        <h2>⏱ Scan History ({scanHistory.length})</h2>
+                        <span className="expand-icon">▼</span>
+                      </summary>
+                      <div className="collapsible-content">
+                        <div className="scans-grid">
+                          {scanHistory.map((scan, index) => (
+                            <div key={scan.id || index} className="scan-item-card">
+                              <div className="scan-info" onClick={() => {
+                                if (scan.productData) {
+                                  onBack()
+                                  setTimeout(() => {
+                                    window.dispatchEvent(new CustomEvent('viewHistoryProduct', { detail: scan.productData }))
+                                  }, 100)
+                                }
+                              }} style={{ cursor: scan.productData ? 'pointer' : 'default' }}>
+                                <span className="scan-name">{scan.productName}</span>
+                                <span className="scan-date">{formatScanDate(scan.scannedAt)}</span>
+                              </div>
+                              <div 
+                                className="scan-verdict"
+                                style={{ color: getVerdictColor(scan.verdict) }}
+                              >
+                                {scan.verdict === 'good' ? '✓' : scan.verdict === 'moderate' ? '⚠' : '✗'}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    </details>
                   </div>
                 )}
               </div>
@@ -234,7 +245,7 @@ function ProfilePage({ onBack, onRetakeQuiz, onLogout }) {
           <div className="profile-card">
             <details className="collapsible-section">
               <summary className="section-summary">
-                <h2>🧬 Health Profile</h2>
+                <h2>⚙ Health Profile</h2>
                 <span className="expand-icon">▼</span>
               </summary>
               <div className="collapsible-content">
@@ -260,7 +271,7 @@ function ProfilePage({ onBack, onRetakeQuiz, onLogout }) {
           <div className="profile-card">
             <details className="collapsible-section">
               <summary className="section-summary">
-                <h2>📋 Quiz Answers</h2>
+                <h2>☰ Quiz Answers</h2>
                 <span className="expand-icon">▼</span>
               </summary>
               <div className="collapsible-content">
@@ -294,7 +305,7 @@ function ProfilePage({ onBack, onRetakeQuiz, onLogout }) {
                 Processing...
               </>
             ) : (
-              '🔄 Retake Health Quiz'
+              '↻ Retake Health Quiz'
             )}
           </button>
           
@@ -302,7 +313,7 @@ function ProfilePage({ onBack, onRetakeQuiz, onLogout }) {
             className="logout-btn"
             onClick={onLogout}
           >
-            🚪 Logout
+            → Logout
           </button>
         </div>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import HomePage from './pages/HomePage'
 import LoadingPage from './pages/LoadingPage'
@@ -21,6 +21,26 @@ function AppContent() {
   const [analysisData, setAnalysisData] = useState(null)
   const [comparisonData, setComparisonData] = useState({ product1: null, product2: null })
   const [authPage, setAuthPage] = useState(PAGES.LOGIN)
+
+  // Quiz Gate Enforcement: Redirect to quiz if not completed (unless on quiz page)
+  useEffect(() => {
+    if (
+      userProfile && 
+      !userProfile.quizCompleted && 
+      currentPage !== PAGES.QUIZ
+    ) {
+      console.log('📋 Quiz not completed, redirecting to quiz page')
+      setCurrentPage(PAGES.QUIZ)
+    }
+  }, [userProfile, currentPage])
+
+  // Prevent access to quiz page if already completed
+  useEffect(() => {
+    if (userProfile && userProfile.quizCompleted && currentPage === PAGES.QUIZ) {
+      console.log('✅ Quiz already completed, redirecting to home')
+      setCurrentPage(PAGES.HOME)
+    }
+  }, [userProfile, currentPage])
 
   // Debug logging
   console.log('🔍 App State:', {
@@ -66,7 +86,7 @@ function AppContent() {
           onClick={toggleTheme}
           aria-label="Toggle theme"
         >
-          {isDarkMode ? '🌞' : '🌚'}
+          {isDarkMode ? '☀' : '☾'}
         </button>
         <main className="main">
           {authPage === PAGES.LOGIN ? (
@@ -95,6 +115,8 @@ function AppContent() {
     setCurrentPage(PAGES.HOME)
     setAnalysisData(null)
     setComparisonData({ product1: null, product2: null })
+    // Trigger history reload by changing a dependency
+    window.dispatchEvent(new Event('scanHistoryUpdate'))
   }
 
   const navigateToComparison = (product1, product2) => {
@@ -108,18 +130,6 @@ function AppContent() {
 
   const navigateToQuiz = () => {
     setCurrentPage(PAGES.QUIZ)
-  }
-
-  // Quiz Gate Enforcement: Redirect to quiz if not completed (unless on profile or quiz page)
-  if (userProfile && !userProfile.quizCompleted && currentPage !== PAGES.QUIZ && currentPage !== PAGES.PROFILE) {
-    console.log('📋 Quiz not completed, redirecting to quiz page')
-    setCurrentPage(PAGES.QUIZ)
-  }
-
-  // Prevent access to quiz page if already completed
-  if (userProfile && userProfile.quizCompleted && currentPage === PAGES.QUIZ) {
-    console.log('✅ Quiz already completed, redirecting to home')
-    setCurrentPage(PAGES.HOME)
   }
 
   const renderPage = () => {
@@ -137,7 +147,7 @@ function AppContent() {
           onBack={navigateToHome} 
         />
       case PAGES.QUIZ:
-        return <QuizPage onQuizComplete={() => setCurrentPage(PAGES.HOME)} />
+        return <QuizPage />
       case PAGES.PROFILE:
         return <ProfilePage onBack={navigateToHome} onRetakeQuiz={navigateToQuiz} onLogout={logout} />
       default:
@@ -147,21 +157,23 @@ function AppContent() {
 
   return (
     <div className="app">
-      <button 
-        className="floating-theme-toggle"
-        onClick={toggleTheme}
-        aria-label="Toggle theme"
-      >
-        {isDarkMode ? '🌞' : '🌚'}
-      </button>
+      <div className="floating-theme-toggle" onClick={toggleTheme}>
+        <button className="icon-btn" aria-label="Toggle theme">
+          {isDarkMode ? '☀' : '☾'}
+        </button>
+        <span className="floating-label">Theme</span>
+      </div>
 
-      <button 
+      <div 
         className="floating-profile-btn"
         onClick={navigateToProfile}
-        aria-label="Profile"
+        style={{ display: currentPage === PAGES.PROFILE || currentPage === PAGES.RESULTS ? 'none' : 'flex' }}
       >
-        👤
-      </button>
+        <button className="icon-btn" aria-label="Profile">
+          👤
+        </button>
+        <span className="floating-label">Profile</span>
+      </div>
 
       <main className="main">
         {renderPage()}
