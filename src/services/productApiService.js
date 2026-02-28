@@ -36,13 +36,27 @@ class ProductApiService {
   }
 
   normalizeProductData(product, barcode) {
-    // Extract nutrition data
+    // Check if product has meaningful data
+    const hasNutrition = product.nutriments && Object.keys(product.nutriments).length > 0
+    const hasIngredients = product.ingredients && product.ingredients.length > 0
+    const hasName = product.product_name || product.generic_name
+    
+    // If no meaningful data, return minimal unknown product
+    if (!hasNutrition && !hasIngredients && !hasName) {
+      return {
+        barcode,
+        product: {
+          name: 'Unknown Product',
+          brand: 'Unknown Brand',
+          category: 'Product not found in database'
+        },
+        dataQuality: 'none',
+        isUnknown: true
+      }
+    }
+    
     const nutrition = this.extractNutrition(product.nutriments || {})
-    
-    // Extract ingredients
     const ingredients = this.extractIngredients(product.ingredients || [])
-    
-    // Calculate health metrics
     const analysis = this.analyzeProduct(nutrition, ingredients)
     
     const productData = {
@@ -60,18 +74,14 @@ class ProductApiService {
       healthWarnings: analysis.warnings,
       prosAndCons: analysis.prosAndCons,
       finalComment: analysis.comment,
-      analysisSource: 'barcode'
+      analysisSource: 'barcode',
+      isUnknown: false
     }
     
-    // Calculate data quality
     productData.dataQuality = EnhancementService.calculateDataQuality(productData)
-    
-    // Generate health explanation
     productData.healthExplanation = EnhancementService.generateHealthExplanation(
       analysis.rating, nutrition, analysis.warnings
     )
-    
-    // Generate personalized warnings
     productData.personalizedWarnings = EnhancementService.generateHealthWarnings(nutrition, ingredients)
     
     return productData
@@ -96,11 +106,8 @@ class ProductApiService {
   }
 
   extractIngredients(ingredients) {
-    return ingredients.map(ingredient => ({
-      name: ingredient.text || ingredient.id || 'Unknown ingredient',
-      commonName: ingredient.text || ingredient.id,
-      riskLevel: this.assessIngredientRisk(ingredient.text || ingredient.id)
-    }))
+    // Don't show ingredients - they're rarely complete in the database
+    return []
   }
 
   assessIngredientRisk(ingredientName) {

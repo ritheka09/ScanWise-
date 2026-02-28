@@ -90,17 +90,6 @@ function HomePage({ onBarcodeAnalyze, onCompare }) {
     setShowNotFound(false)
     try {
       const productData = await productApi.current.fetchProductByBarcode(barcode)
-      
-      // Save to Firestore scan history
-      if (user) {
-        await scanHistoryService.saveScan(user.uid, {
-          productName: productData.product.name,
-          verdict: productData.verdict,
-          flags: productData.flags || []
-        })
-        await loadScanHistory()
-      }
-      
       onBarcodeAnalyze(productData)
     } catch (error) {
       console.error('Barcode analysis failed:', error)

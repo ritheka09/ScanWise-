@@ -57,7 +57,7 @@ function AppContent() {
   
   if (isLoading) {
     console.log('⏳ Showing loading page - Auth:', authLoading, 'Profile:', profileLoading)
-    return <LoadingPage />
+    return <LoadingPage message="Loading..." />
   }
 
   // Show error if profile failed to load
@@ -137,7 +137,7 @@ function AppContent() {
       case PAGES.HOME:
         return <HomePage onBarcodeAnalyze={navigateToBarcodeResults} onCompare={navigateToComparison} />
       case PAGES.LOADING:
-        return <LoadingPage />
+        return <LoadingPage message="Analyzing Product..." submessage="Fetching nutrition data from OpenFoodFacts" />
       case PAGES.RESULTS:
         return <ResultsPage data={analysisData} onBack={navigateToHome} onCompare={navigateToComparison} />
       case PAGES.COMPARISON:
@@ -170,7 +170,7 @@ function AppContent() {
         style={{ display: currentPage === PAGES.PROFILE || currentPage === PAGES.RESULTS ? 'none' : 'flex' }}
       >
         <button className="icon-btn" aria-label="Profile">
-          👤
+          ☰
         </button>
         <span className="floating-label">Profile</span>
       </div>

@@ -3,69 +3,79 @@ import { evaluateProductForUser, getVerdictDisplay } from '../utils/productSuita
 import { getRecommendedAlternatives } from '../utils/recommendationsEngine'
 import { scanHistoryService } from '../services/scanHistoryService'
 import { useAuth } from '../contexts/AuthContext'
+import { useEffect, useRef, useMemo } from 'react'
 
 function ResultsPage({ data, onBack, onCompare }) {
   const { userProfile } = useUserProfile()
   const { user } = useAuth()
+  const savedScansRef = useRef(new Set())
   
   console.log('ResultsPage data:', data)
   console.log('RESULTS_PAGE_SOURCE:', data?.analysisSource)
   
-  // Evaluate product suitability for the user
-  let suitabilityEvaluation = null
-  let recommendations = null
-  
-  if (userProfile?.healthProfile && data) {
-    try {
-      // Transform data to match expected format
-      const productData = {
-        productName: data.product?.name || 'Unknown Product',
-        sugar: data.nutritionFacts?.sugar || 'N/A',
-        salt: data.nutritionFacts?.sodium ? (data.nutritionFacts.sodium / 1000).toFixed(1) : 'N/A', // Convert mg to g
-        fat: data.nutritionFacts?.saturatedFat || 'N/A',
-        calories: data.nutritionFacts?.calories || 'N/A',
-        ingredients: data.ingredients?.map(ing => ing.name).join(', ') || ''
-      }
-      
-      suitabilityEvaluation = evaluateProductForUser(productData, userProfile.healthProfile)
-      console.log('🎯 Product suitability evaluation:', suitabilityEvaluation)
-      console.log('📊 Product data used:', productData)
-      console.log('👤 Health profile used:', userProfile.healthProfile)
-      
-      // Get recommendations if product is not "good"
-      if (suitabilityEvaluation.verdict !== 'good') {
-        recommendations = getRecommendedAlternatives(productData, userProfile.healthProfile)
-        console.log('💡 Generated recommendations:', recommendations)
-      }
-      
-      // Save scan to history (non-blocking)
-      if (user && suitabilityEvaluation) {
-        // Calculate risk levels from nutrition values
-        const sugarValue = parseFloat(productData.sugar) || 0
-        const saltValue = parseFloat(productData.salt) || 0
-        
-        const sugarRiskLevel = sugarValue > 15 ? 'high' : sugarValue > 5 ? 'medium' : 'low'
-        const saltRiskLevel = saltValue > 1.5 ? 'high' : saltValue > 0.3 ? 'medium' : 'low'
-        
-        const scanData = {
+  // Memoize evaluation to prevent recalculation on re-renders
+  const { suitabilityEvaluation, recommendations } = useMemo(() => {
+    let evaluation = null
+    let recs = null
+    
+    if (userProfile?.healthProfile && data) {
+      try {
+        const productData = {
           productName: data.product?.name || 'Unknown Product',
-          brand: data.product?.brand || 'Unknown Brand',
-          score: suitabilityEvaluation.score || 0,
-          verdict: suitabilityEvaluation.verdict || 'moderate',
-          sugarRisk: sugarRiskLevel,
-          saltRisk: saltRiskLevel,
-          productData: data
+          sugar: data.nutritionFacts?.sugar || 'N/A',
+          salt: data.nutritionFacts?.sodium ? (data.nutritionFacts.sodium / 1000).toFixed(1) : 'N/A',
+          fat: data.nutritionFacts?.saturatedFat || 'N/A',
+          calories: data.nutritionFacts?.calories || 'N/A',
+          ingredients: data.ingredients?.map(ing => ing.name).join(', ') || ''
         }
-        scanHistoryService.saveScan(user.uid, scanData).then(() => {
-          console.log('✅ Scan saved to history successfully')
-        }).catch(err => {
-          console.error('Failed to save scan history:', err)
-        })
+        
+        evaluation = evaluateProductForUser(productData, userProfile.healthProfile)
+        console.log('🎯 Product suitability evaluation:', evaluation)
+        
+        if (evaluation.verdict !== 'good') {
+          recs = getRecommendedAlternatives(productData, userProfile.healthProfile)
+          console.log('💡 Generated recommendations:', recs)
+        }
+      } catch (error) {
+        console.error('❌ Error evaluating product suitability:', error)
       }
-    } catch (error) {
-      console.error('❌ Error evaluating product suitability:', error)
     }
-  }
+    
+    return { suitabilityEvaluation: evaluation, recommendations: recs }
+  }, [userProfile?.healthProfile, data])
+  
+  // Save scan to history only once per unique product
+  useEffect(() => {
+    if (!user || !suitabilityEvaluation || !data) return
+    
+    const productKey = `${data.product?.name}-${suitabilityEvaluation.score}`
+    
+    if (savedScansRef.current.has(productKey)) {
+      console.log('⏭️ Scan already saved, skipping')
+      return
+    }
+    
+    savedScansRef.current.add(productKey)
+    
+    const sugarValue = parseFloat(data.nutritionFacts?.sugar) || 0
+    const saltValue = parseFloat(data.nutritionFacts?.sodium ? (data.nutritionFacts.sodium / 1000).toFixed(1) : 0) || 0
+    
+    const scanData = {
+      productName: data.product?.name || 'Unknown Product',
+      brand: data.product?.brand || 'Unknown Brand',
+      score: suitabilityEvaluation.score || 0,
+      verdict: suitabilityEvaluation.verdict || 'moderate',
+      sugarRisk: sugarValue > 15 ? 'high' : sugarValue > 5 ? 'medium' : 'low',
+      saltRisk: saltValue > 1.5 ? 'high' : saltValue > 0.3 ? 'medium' : 'low',
+      productData: data
+    }
+    
+    scanHistoryService.saveScan(user.uid, scanData).then(() => {
+      console.log('✅ Scan saved to history successfully')
+    }).catch(err => {
+      console.error('Failed to save scan history:', err)
+    })
+  }, [user, suitabilityEvaluation, data])
   
   if (!data) {
     console.log('No data provided to ResultsPage')
@@ -78,6 +88,31 @@ function ResultsPage({ data, onBack, onCompare }) {
           <div className="product-overview">
             <h2 className="product-name">No Data</h2>
             <p className="product-category">Please try scanning again</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Handle unknown products with no data
+  if (data.isUnknown || data.dataQuality === 'none') {
+    return (
+      <div className="results-page">
+        <button className="floating-back-btn" onClick={onBack}>
+          ← Back to Scan
+        </button>
+        <div className="results-content">
+          <div className="product-overview">
+            <h2 className="product-name">Unknown Product</h2>
+            <p className="product-category">Data Not Found</p>
+            <p className="data-used" style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>
+              This product is not available in our database. Please try scanning a different product or check the barcode.
+            </p>
+          </div>
+          <div className="navigation-buttons" style={{ marginTop: '2rem' }}>
+            <button className="scan-another-btn" onClick={onBack}>
+              ↻ Scan Another Product
+            </button>
           </div>
         </div>
       </div>

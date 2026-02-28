@@ -1,9 +1,9 @@
-function LoadingPage() {
+function LoadingPage({ message = 'Loading...', submessage = '' }) {
   return (
     <div className="loading-page">
       <div className="spinner"></div>
-      <p className="loading-message">Analyzing Product...</p>
-      <p className="loading-submessage">Fetching nutrition data from OpenFoodFacts</p>
+      <p className="loading-message">{message}</p>
+      {submessage && <p className="loading-submessage">{submessage}</p>}
     </div>
   )
 }
